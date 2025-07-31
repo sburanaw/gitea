@@ -1765,6 +1765,10 @@ func Routes() *web.Router {
 			})
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())
 
+		m.Group("/admin/users", func() {
+			m.Patch("/{username}/active", bind(api.ChangeUserActivationOption{}), admin.ChangeUserActive)
+		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUserActivation), reqToken(), reqSiteAdmin(), context.UserAssignmentAPI())
+
 		m.Group("/topics", func() {
 			m.Get("/search", repo.TopicSearch)
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))

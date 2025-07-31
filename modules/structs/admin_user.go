@@ -57,3 +57,8 @@ type EditUserOption struct {
 	Restricted              *bool   `json:"restricted"`
 	Visibility              string  `json:"visibility" binding:"In(,public,limited,private)"`
 }
+
+// ChangeUserActivationOption sets user's active state
+type ChangeUserActivationOption struct {
+	Active bool `json:"active"`
+}

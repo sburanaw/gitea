@@ -490,3 +490,28 @@ func RenameUser(ctx *context.APIContext) {
 	}
 	ctx.Status(http.StatusNoContent)
 }
+
+// ChangeUserActive sets the active state of a user
+func ChangeUserActive(ctx *context.APIContext) {
+	if ctx.ContextUser.IsOrganization() {
+		ctx.APIError(http.StatusUnprocessableEntity, fmt.Errorf("%s is an organization not a user", ctx.ContextUser.Name))
+		return
+	}
+
+	active := web.GetForm(ctx).(*api.ChangeUserActivationOption).Active
+
+	opts := &user_service.UpdateOptions{
+		IsActive: optional.Some(active),
+	}
+
+	if err := user_service.UpdateUser(ctx, ctx.ContextUser, opts); err != nil {
+		if user_model.IsErrDeleteLastAdminUser(err) {
+			ctx.APIError(http.StatusBadRequest, err)
+		} else {
+			ctx.APIErrorInternal(err)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, convert.ToUser(ctx, ctx.ContextUser, ctx.Doer))
+}
