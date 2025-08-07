@@ -194,6 +194,23 @@ func EditUser(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.EditUserOption)
 
+	if form.Active != nil && ctx.Data["IsApiToken"] == true {
+		scope, ok := ctx.Data["ApiTokenScope"].(auth.AccessTokenScope)
+		if ok {
+			requiredScopes := auth.GetRequiredScopes(auth.Write, auth.AccessTokenScopeCategoryUserActivation)
+			allow, err := scope.HasScope(requiredScopes...)
+			if err != nil {
+				ctx.APIError(http.StatusForbidden, "checking scope failed: "+err.Error())
+				return
+			}
+
+			if !allow {
+				ctx.APIError(http.StatusForbidden, fmt.Sprintf("token does not have at least one of required scope(s), required=%v, token scope=%v", requiredScopes, scope))
+				return
+			}
+		}
+	}
+
 	authOpts := &user_service.UpdateAuthOptions{
 		LoginSource:        optional.FromNonDefault(form.SourceID),
 		LoginName:          optional.Some(form.LoginName),
