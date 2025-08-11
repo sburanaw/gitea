@@ -1713,8 +1713,13 @@ func Routes() *web.Router {
 			m.Group("/cron", func() {
 				m.Get("", admin.ListCronTasks)
 				m.Post("/{task}", admin.PostCronTask)
-			})
-			m.Get("/orgs", admin.GetAllOrgs)
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
+			m.Get("/orgs", tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), admin.GetAllOrgs)
+			m.Patch("/users/{username}/active",
+				tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUserActivation),
+				context.UserAssignmentAPI(),
+				bind(api.ChangeUserActivationOption{}),
+				admin.ChangeUserActive)
 			m.Group("/users", func() {
 				m.Get("", admin.SearchUsers)
 				m.Post("", bind(api.CreateUserOption{}), admin.CreateUser)
@@ -1733,23 +1738,23 @@ func Routes() *web.Router {
 					m.Post("/badges", bind(api.UserBadgeOption{}), admin.AddUserBadges)
 					m.Delete("/badges", bind(api.UserBadgeOption{}), admin.DeleteUserBadges)
 				}, context.UserAssignmentAPI())
-			})
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
 			m.Group("/emails", func() {
 				m.Get("", admin.GetAllEmails)
 				m.Get("/search", admin.SearchEmail)
-			})
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
 			m.Group("/unadopted", func() {
 				m.Get("", admin.ListUnadoptedRepositories)
 				m.Post("/{username}/{reponame}", admin.AdoptRepository)
 				m.Delete("/{username}/{reponame}", admin.DeleteUnadoptedRepository)
-			})
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
 			m.Group("/hooks", func() {
 				m.Combo("").Get(admin.ListHooks).
 					Post(bind(api.CreateHookOption{}), admin.CreateHook)
 				m.Combo("/{id}").Get(admin.GetHook).
 					Patch(bind(api.EditHookOption{}), admin.EditHook).
 					Delete(admin.DeleteHook)
-			})
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
 			m.Group("/actions", func() {
 				m.Group("/runners", func() {
 					m.Get("", admin.ListRunners)
@@ -1759,15 +1764,11 @@ func Routes() *web.Router {
 				})
 				m.Get("/runs", admin.ListWorkflowRuns)
 				m.Get("/jobs", admin.ListWorkflowJobs)
-			})
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
 			m.Group("/runners", func() {
 				m.Get("/registration-token", admin.GetRegistrationToken)
-			})
-		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin), reqToken(), reqSiteAdmin())
-
-		m.Group("/admin/users", func() {
-			m.Patch("/{username}/active", bind(api.ChangeUserActivationOption{}), admin.ChangeUserActive)
-		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUserActivation), reqToken(), reqSiteAdmin(), context.UserAssignmentAPI())
+			}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryAdmin))
+		}, reqToken(), reqSiteAdmin())
 
 		m.Group("/topics", func() {
 			m.Get("/search", repo.TopicSearch)
