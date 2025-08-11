@@ -24,6 +24,7 @@ const (
 	AccessTokenScopeCategoryIssue
 	AccessTokenScopeCategoryRepository
 	AccessTokenScopeCategoryUser
+	AccessTokenScopeCategoryUserActivation
 )
 
 // AllAccessTokenScopeCategories contains all access token scope categories
@@ -37,6 +38,7 @@ var AllAccessTokenScopeCategories = []AccessTokenScopeCategory{
 	AccessTokenScopeCategoryIssue,
 	AccessTokenScopeCategoryRepository,
 	AccessTokenScopeCategoryUser,
+	AccessTokenScopeCategoryUserActivation,
 }
 
 // AccessTokenScopeLevel represents the access levels without a given scope category
@@ -82,6 +84,9 @@ const (
 
 	AccessTokenScopeReadUser  AccessTokenScope = "read:user"
 	AccessTokenScopeWriteUser AccessTokenScope = "write:user"
+
+	AccessTokenScopeReadUserActivation  AccessTokenScope = "read:user-activation"
+	AccessTokenScopeWriteUserActivation AccessTokenScope = "write:user-activation"
 )
 
 // accessTokenScopeBitmap represents a bitmap of access token scopes.
@@ -93,7 +98,7 @@ const (
 	accessTokenScopeAllBits accessTokenScopeBitmap = accessTokenScopeWriteActivityPubBits |
 		accessTokenScopeWriteAdminBits | accessTokenScopeWriteMiscBits | accessTokenScopeWriteNotificationBits |
 		accessTokenScopeWriteOrganizationBits | accessTokenScopeWritePackageBits | accessTokenScopeWriteIssueBits |
-		accessTokenScopeWriteRepositoryBits | accessTokenScopeWriteUserBits
+		accessTokenScopeWriteRepositoryBits | accessTokenScopeWriteUserBits | accessTokenScopeWriteUserActivationBits
 
 	accessTokenScopePublicOnlyBits accessTokenScopeBitmap = 1 << iota
 
@@ -124,6 +129,9 @@ const (
 	accessTokenScopeReadUserBits  accessTokenScopeBitmap = 1 << iota
 	accessTokenScopeWriteUserBits accessTokenScopeBitmap = 1<<iota | accessTokenScopeReadUserBits
 
+	accessTokenScopeReadUserActivationBits  accessTokenScopeBitmap = 1 << iota
+	accessTokenScopeWriteUserActivationBits accessTokenScopeBitmap = 1<<iota | accessTokenScopeReadUserActivationBits
+
 	// The current implementation only supports up to 64 token scopes.
 	// If we need to support > 64 scopes,
 	// refactoring the whole implementation in this file (and only this file) is needed.
@@ -142,55 +150,60 @@ var allAccessTokenScopes = []AccessTokenScope{
 	AccessTokenScopeWriteIssue, AccessTokenScopeReadIssue,
 	AccessTokenScopeWriteRepository, AccessTokenScopeReadRepository,
 	AccessTokenScopeWriteUser, AccessTokenScopeReadUser,
+	AccessTokenScopeWriteUserActivation, AccessTokenScopeReadUserActivation,
 }
 
 // allAccessTokenScopeBits contains all access token scopes.
 var allAccessTokenScopeBits = map[AccessTokenScope]accessTokenScopeBitmap{
-	AccessTokenScopeAll:               accessTokenScopeAllBits,
-	AccessTokenScopePublicOnly:        accessTokenScopePublicOnlyBits,
-	AccessTokenScopeReadActivityPub:   accessTokenScopeReadActivityPubBits,
-	AccessTokenScopeWriteActivityPub:  accessTokenScopeWriteActivityPubBits,
-	AccessTokenScopeReadAdmin:         accessTokenScopeReadAdminBits,
-	AccessTokenScopeWriteAdmin:        accessTokenScopeWriteAdminBits,
-	AccessTokenScopeReadMisc:          accessTokenScopeReadMiscBits,
-	AccessTokenScopeWriteMisc:         accessTokenScopeWriteMiscBits,
-	AccessTokenScopeReadNotification:  accessTokenScopeReadNotificationBits,
-	AccessTokenScopeWriteNotification: accessTokenScopeWriteNotificationBits,
-	AccessTokenScopeReadOrganization:  accessTokenScopeReadOrganizationBits,
-	AccessTokenScopeWriteOrganization: accessTokenScopeWriteOrganizationBits,
-	AccessTokenScopeReadPackage:       accessTokenScopeReadPackageBits,
-	AccessTokenScopeWritePackage:      accessTokenScopeWritePackageBits,
-	AccessTokenScopeReadIssue:         accessTokenScopeReadIssueBits,
-	AccessTokenScopeWriteIssue:        accessTokenScopeWriteIssueBits,
-	AccessTokenScopeReadRepository:    accessTokenScopeReadRepositoryBits,
-	AccessTokenScopeWriteRepository:   accessTokenScopeWriteRepositoryBits,
-	AccessTokenScopeReadUser:          accessTokenScopeReadUserBits,
-	AccessTokenScopeWriteUser:         accessTokenScopeWriteUserBits,
+	AccessTokenScopeAll:                 accessTokenScopeAllBits,
+	AccessTokenScopePublicOnly:          accessTokenScopePublicOnlyBits,
+	AccessTokenScopeReadActivityPub:     accessTokenScopeReadActivityPubBits,
+	AccessTokenScopeWriteActivityPub:    accessTokenScopeWriteActivityPubBits,
+	AccessTokenScopeReadAdmin:           accessTokenScopeReadAdminBits,
+	AccessTokenScopeWriteAdmin:          accessTokenScopeWriteAdminBits,
+	AccessTokenScopeReadMisc:            accessTokenScopeReadMiscBits,
+	AccessTokenScopeWriteMisc:           accessTokenScopeWriteMiscBits,
+	AccessTokenScopeReadNotification:    accessTokenScopeReadNotificationBits,
+	AccessTokenScopeWriteNotification:   accessTokenScopeWriteNotificationBits,
+	AccessTokenScopeReadOrganization:    accessTokenScopeReadOrganizationBits,
+	AccessTokenScopeWriteOrganization:   accessTokenScopeWriteOrganizationBits,
+	AccessTokenScopeReadPackage:         accessTokenScopeReadPackageBits,
+	AccessTokenScopeWritePackage:        accessTokenScopeWritePackageBits,
+	AccessTokenScopeReadIssue:           accessTokenScopeReadIssueBits,
+	AccessTokenScopeWriteIssue:          accessTokenScopeWriteIssueBits,
+	AccessTokenScopeReadRepository:      accessTokenScopeReadRepositoryBits,
+	AccessTokenScopeWriteRepository:     accessTokenScopeWriteRepositoryBits,
+	AccessTokenScopeReadUser:            accessTokenScopeReadUserBits,
+	AccessTokenScopeWriteUser:           accessTokenScopeWriteUserBits,
+	AccessTokenScopeReadUserActivation:  accessTokenScopeReadUserActivationBits,
+	AccessTokenScopeWriteUserActivation: accessTokenScopeWriteUserActivationBits,
 }
 
 // readAccessTokenScopes maps a scope category to the read permission scope
 var accessTokenScopes = map[AccessTokenScopeLevel]map[AccessTokenScopeCategory]AccessTokenScope{
 	Read: {
-		AccessTokenScopeCategoryActivityPub:  AccessTokenScopeReadActivityPub,
-		AccessTokenScopeCategoryAdmin:        AccessTokenScopeReadAdmin,
-		AccessTokenScopeCategoryMisc:         AccessTokenScopeReadMisc,
-		AccessTokenScopeCategoryNotification: AccessTokenScopeReadNotification,
-		AccessTokenScopeCategoryOrganization: AccessTokenScopeReadOrganization,
-		AccessTokenScopeCategoryPackage:      AccessTokenScopeReadPackage,
-		AccessTokenScopeCategoryIssue:        AccessTokenScopeReadIssue,
-		AccessTokenScopeCategoryRepository:   AccessTokenScopeReadRepository,
-		AccessTokenScopeCategoryUser:         AccessTokenScopeReadUser,
+		AccessTokenScopeCategoryActivityPub:    AccessTokenScopeReadActivityPub,
+		AccessTokenScopeCategoryAdmin:          AccessTokenScopeReadAdmin,
+		AccessTokenScopeCategoryMisc:           AccessTokenScopeReadMisc,
+		AccessTokenScopeCategoryNotification:   AccessTokenScopeReadNotification,
+		AccessTokenScopeCategoryOrganization:   AccessTokenScopeReadOrganization,
+		AccessTokenScopeCategoryPackage:        AccessTokenScopeReadPackage,
+		AccessTokenScopeCategoryIssue:          AccessTokenScopeReadIssue,
+		AccessTokenScopeCategoryRepository:     AccessTokenScopeReadRepository,
+		AccessTokenScopeCategoryUser:           AccessTokenScopeReadUser,
+		AccessTokenScopeCategoryUserActivation: AccessTokenScopeReadUserActivation,
 	},
 	Write: {
-		AccessTokenScopeCategoryActivityPub:  AccessTokenScopeWriteActivityPub,
-		AccessTokenScopeCategoryAdmin:        AccessTokenScopeWriteAdmin,
-		AccessTokenScopeCategoryMisc:         AccessTokenScopeWriteMisc,
-		AccessTokenScopeCategoryNotification: AccessTokenScopeWriteNotification,
-		AccessTokenScopeCategoryOrganization: AccessTokenScopeWriteOrganization,
-		AccessTokenScopeCategoryPackage:      AccessTokenScopeWritePackage,
-		AccessTokenScopeCategoryIssue:        AccessTokenScopeWriteIssue,
-		AccessTokenScopeCategoryRepository:   AccessTokenScopeWriteRepository,
-		AccessTokenScopeCategoryUser:         AccessTokenScopeWriteUser,
+		AccessTokenScopeCategoryActivityPub:    AccessTokenScopeWriteActivityPub,
+		AccessTokenScopeCategoryAdmin:          AccessTokenScopeWriteAdmin,
+		AccessTokenScopeCategoryMisc:           AccessTokenScopeWriteMisc,
+		AccessTokenScopeCategoryNotification:   AccessTokenScopeWriteNotification,
+		AccessTokenScopeCategoryOrganization:   AccessTokenScopeWriteOrganization,
+		AccessTokenScopeCategoryPackage:        AccessTokenScopeWritePackage,
+		AccessTokenScopeCategoryIssue:          AccessTokenScopeWriteIssue,
+		AccessTokenScopeCategoryRepository:     AccessTokenScopeWriteRepository,
+		AccessTokenScopeCategoryUser:           AccessTokenScopeWriteUser,
+		AccessTokenScopeCategoryUserActivation: AccessTokenScopeWriteUserActivation,
 	},
 }
 

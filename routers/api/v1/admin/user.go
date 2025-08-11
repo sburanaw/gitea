@@ -194,6 +194,23 @@ func EditUser(ctx *context.APIContext) {
 
 	form := web.GetForm(ctx).(*api.EditUserOption)
 
+	if form.Active != nil && ctx.Data["IsApiToken"] == true {
+		scope, ok := ctx.Data["ApiTokenScope"].(auth.AccessTokenScope)
+		if ok {
+			requiredScopes := auth.GetRequiredScopes(auth.Write, auth.AccessTokenScopeCategoryUserActivation)
+			allow, err := scope.HasScope(requiredScopes...)
+			if err != nil {
+				ctx.APIError(http.StatusForbidden, "checking scope failed: "+err.Error())
+				return
+			}
+
+			if !allow {
+				ctx.APIError(http.StatusForbidden, fmt.Sprintf("token does not have at least one of required scope(s), required=%v, token scope=%v", requiredScopes, scope))
+				return
+			}
+		}
+	}
+
 	authOpts := &user_service.UpdateAuthOptions{
 		LoginSource:        optional.FromNonDefault(form.SourceID),
 		LoginName:          optional.Some(form.LoginName),
@@ -489,4 +506,29 @@ func RenameUser(ctx *context.APIContext) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// ChangeUserActive sets the active state of a user
+func ChangeUserActive(ctx *context.APIContext) {
+	if ctx.ContextUser.IsOrganization() {
+		ctx.APIError(http.StatusUnprocessableEntity, fmt.Errorf("%s is an organization not a user", ctx.ContextUser.Name))
+		return
+	}
+
+	active := web.GetForm(ctx).(*api.ChangeUserActivationOption).Active
+
+	opts := &user_service.UpdateOptions{
+		IsActive: optional.Some(active),
+	}
+
+	if err := user_service.UpdateUser(ctx, ctx.ContextUser, opts); err != nil {
+		if user_model.IsErrDeleteLastAdminUser(err) {
+			ctx.APIError(http.StatusBadRequest, err)
+		} else {
+			ctx.APIErrorInternal(err)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, convert.ToUser(ctx, ctx.ContextUser, ctx.Doer))
 }
